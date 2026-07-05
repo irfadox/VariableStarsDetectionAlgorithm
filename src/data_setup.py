@@ -73,6 +73,12 @@ class LightCurveDataset(Dataset):
                 # Append data and class labels
                 self.data.append((times, mags))
                 self.labels.append(label)
+        else:
+            # Look for fits/csv tables in the specified data folder
+            import glob
+            self.file_paths = glob.glob(os.path.join(self.data_dir, "*.fits")) + glob.glob(os.path.join(self.data_dir, "*.csv"))
+            self.file_paths.sort()
+            self.num_samples = len(self.file_paths)
 
     # Return total length of dataset
     def __len__(self):
@@ -86,15 +92,56 @@ class LightCurveDataset(Dataset):
             times, mags = self.data[idx]
             label = self.labels[idx]
         else:
-            # Placeholder illustrating how files would load from folder directory
-            # list files, read target index, fetch label from name structure
-            raise NotImplementedError("Real file path ingestion requires local catalog folder.")
+            file_path = self.file_paths[idx]
+            # Parse real light curve values from table
+            if file_path.endswith(".fits"):
+                times, mags = parse_real_light_curve(file_path, time_col='time', mag_col='mag')
+            else:
+                # Load CSV files using standard numpy reader
+                data_array = np.genfromtxt(file_path, delimiter=',', names=True)
+                times = data_array['time']
+                mags = data_array['mag']
+                
+            # Classify label depending on filename prefix convention (e.g. cepheid_star_01.csv)
+            filename = os.path.basename(file_path).lower()
+            if "cepheid" in filename:
+                label = 0
+            elif "rrlyrae" in filename:
+                label = 1
+            elif "eb" in filename or "binary" in filename:
+                label = 2
+            else:
+                label = 3
+
             
-        # Interpolate irregular time measurements onto a fixed grids
-        # Define 100 evenly spaced points from first to last observation
-        grid_times = np.linspace(times[0], times[-1], self.seq_len)
-        # Interpolate magnitudes
-        interpolated_mags = np.interp(grid_times, times, mags)
+        # Use Lomb-Scargle periodogram to find the dominant frequency (period) of the light curve
+        from astropy.timeseries import LombScargle
+        
+        try:
+            # Run autopower to compute periodogram
+            frequency, power = LombScargle(times, mags).autopower(minimum_frequency=0.01, maximum_frequency=10.0)
+            # Find the best frequency corresponding to highest power peak
+            best_freq = frequency[np.argmax(power)]
+            best_period = 1.0 / best_freq
+        except Exception:
+            # Fallback to period of 1.0 if calculation fails
+            best_period = 1.0
+
+        # Phase-fold the irregular times: Phase = (Time / Period) mod 1
+        phases = (times / best_period) % 1.0
+        
+        # Sort both phases and magnitudes based on the phases order
+        # This aligns the points in phase-space, revealing the clean pulsation curve
+        sort_indices = np.argsort(phases)
+        sorted_phases = phases[sort_indices]
+        sorted_mags = mags[sort_indices]
+        
+        # Define a uniform phase grid strictly from 0.0 to 1.0
+        grid_phases = np.linspace(0.0, 1.0, self.seq_len)
+        
+        # Interpolate the phase-folded magnitude profile onto the uniform phase grid
+        # Periodicity boundary handling: wrap around using period=1.0 behavior
+        interpolated_mags = np.interp(grid_phases, sorted_phases, sorted_mags, period=1.0)
         
         # Min-max normalize magnitude values per curve to range [0.0, 1.0]
         min_v = interpolated_mags.min()
@@ -112,3 +159,4 @@ class LightCurveDataset(Dataset):
         
         # Return processed curve data and category label
         return tensor_data, tensor_label
+
