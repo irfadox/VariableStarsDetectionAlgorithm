@@ -18,9 +18,9 @@ This project implements an end-to-end pipeline in PyTorch to classify variable s
 
 ## 📦 Installation & Setup
 
-Install the required astronomy and deep learning dependencies:
+Install the required astronomy, deep learning, and UI dependencies:
 ```bash
-pip install torch astropy astroquery matplotlib scikit-learn
+pip install torch astropy astroquery matplotlib scikit-learn gradio
 ```
 
 ---
@@ -53,3 +53,11 @@ To run on a custom file inside Python:
 from predict import predict_star_class
 predict_star_class("path/to/your/star_curve.fits")
 ```
+
+### Step 4: Run the Gradio Web App UI
+Launch the interactive web page UI:
+```bash
+python3 app.py
+```
+Open [http://localhost:7860](http://localhost:7860) in your browser to upload curves and view predictions visually.
+
