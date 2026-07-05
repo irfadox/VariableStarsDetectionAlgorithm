@@ -47,7 +47,7 @@ def train_epoch(model, dataloader, optimizer, criterion, device):
     return epoch_loss, epoch_accuracy
 
 # Validation/testing function for a single epoch
-def test_epoch(model, dataloader, criterion, device):
+def test_epoch(model, dataloader, criterion, device, print_metrics=False):
     # Set model to eval mode
     model.eval()
     
@@ -55,6 +55,10 @@ def test_epoch(model, dataloader, criterion, device):
     running_loss = 0.0
     correct_predictions = 0
     total_samples = 0
+    
+    # Lists to store targets and predictions for scikit-learn reporting
+    all_targets = []
+    all_predictions = []
     
     # Disable gradient calculations
     with torch.no_grad():
@@ -77,9 +81,23 @@ def test_epoch(model, dataloader, criterion, device):
             correct_predictions += (predictions == labels).sum().item()
             total_samples += sequences.size(0)
             
+            # Collect labels for final evaluation metrics
+            all_targets.extend(labels.cpu().numpy())
+            all_predictions.extend(predictions.cpu().numpy())
+            
     # Calculate average epoch loss and accuracy
     epoch_loss = running_loss / total_samples
     epoch_accuracy = correct_predictions / total_samples
     
+    # If final epoch, print detailed precision, recall, and f1 score metrics
+    if print_metrics:
+        from sklearn.metrics import classification_report, confusion_matrix
+        target_names = ["Cepheid", "RR Lyrae", "Eclipsing Binary", "LPV"]
+        print("\n--- Final Epoch Evaluation Classification Report ---")
+        print(classification_report(all_targets, all_predictions, target_names=target_names, zero_division=0))
+        print("Confusion Matrix:")
+        print(confusion_matrix(all_targets, all_predictions))
+        
     # Return metrics
     return epoch_loss, epoch_accuracy
+

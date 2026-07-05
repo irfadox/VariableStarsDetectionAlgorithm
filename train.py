@@ -57,13 +57,17 @@ def main():
         print(f"Train Loss: {train_loss:.4f} | Train Acc: {train_acc * 100:.2f}%")
         
         # Run test validation step
+        # Print metrics (classification report & confusion matrix) only on the final epoch
+        is_final_epoch = (epoch == epochs)
         test_loss, test_acc = test_epoch(
             model=model,
             dataloader=test_loader,
             criterion=criterion,
-            device=device
+            device=device,
+            print_metrics=is_final_epoch
         )
         print(f"Test Loss:  {test_loss:.4f} | Test Acc:  {test_acc * 100:.2f}%")
+
         
     # Create models export directory
     models_dir = "models"
