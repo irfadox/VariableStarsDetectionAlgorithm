@@ -29,49 +29,50 @@ def download_mast_light_curves(target_name="M31", output_dir="data/real_light_cu
     ]
     
     if len(timeseries_obs) == 0:
-        # Fallback to downloading raw table search criteria if no direct matches
-        print("No direct TESS/Kepler time-series matches. Downloading standard observations...")
-        timeseries_obs = obs_table[0:max_files]
+        print("No direct TESS/Kepler time-series matches. Using standard observations...")
+        timeseries_obs = obs_table
     else:
         print(f"Found {len(timeseries_obs)} time-series observations in target region.")
-        timeseries_obs = timeseries_obs[0:max_files]
         
-    # Get associated products list
-    products = Observations.get_product_list(timeseries_obs)
-    
-    # Filter data products specifically for light curve files (typically ending in _lc.fits)
-    filtered_products = Observations.filter_products(
-        products,
-        productSubGroupDescription="LC",
-        extension="fits"
-    )
-    
-    if len(filtered_products) == 0:
-        # Fallback to any FITS product in observation list
-        filtered_products = Observations.filter_products(
-            products,
-            extension="fits"
-        )
-        
-    if len(filtered_products) == 0:
-        print("No FITS data products found to download.")
-        return []
-        
-    # Cap downloads to max_files parameter
-    filtered_products = filtered_products[0:max_files]
-    
     downloaded_paths = []
-    print(f"Downloading up to {len(filtered_products)} light curve FITS files...")
+    print(f"Searching and downloading up to {max_files} light curve FITS files...")
     
-    # Download each target product safely
-    for idx, product in enumerate(filtered_products):
+    idx = 0
+    for obs in timeseries_obs:
+        if len(downloaded_paths) >= max_files:
+            break
         try:
-            # Download using astroquery MAST
+            # Query products for this specific observation
+            products = Observations.get_product_list(obs)
+            if len(products) == 0:
+                continue
+                
+            # Filter specifically for light curves (LC)
+            filtered_products = Observations.filter_products(
+                products,
+                productSubGroupDescription="LC",
+                extension="fits"
+            )
+            
+            if len(filtered_products) == 0:
+                # Fallback to any FITS product
+                filtered_products = Observations.filter_products(
+                    products,
+                    extension="fits"
+                )
+                
+            if len(filtered_products) == 0:
+                continue
+                
+            # Download the first available product for this observation
+            product = filtered_products[0]
             manifest = Observations.download_products(product)
+            if len(manifest) == 0 or 'Local Path' not in manifest.colnames:
+                continue
             local_path = manifest['Local Path'][0]
             
-            # Move/copy file to target output folder with standard names
-            filename = f"star_lightcurve_{idx}.fits"
+            # Save file
+            filename = f"star_lightcurve_{len(downloaded_paths)}.fits"
             dest_path = os.path.join(output_dir, filename)
             
             import shutil
@@ -79,7 +80,8 @@ def download_mast_light_curves(target_name="M31", output_dir="data/real_light_cu
             print(f"Downloaded and saved: {dest_path}")
             downloaded_paths.append(dest_path)
         except Exception as e:
-            print(f"Failed to download product {idx}: {e}")
+            print(f"Skipping observation due to error: {e}")
+            continue
             
     print(f"Completed! Downloaded {len(downloaded_paths)} files to '{output_dir}'.")
     return downloaded_paths

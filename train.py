@@ -18,9 +18,9 @@ def main():
     print(f"Using training device: {device}")
     
     # Initialize mock training and testing datasets
-    # Generate 1000 training curves and 200 testing curves with 100 timesteps each
-    train_dataset = LightCurveDataset(num_samples=1000, seq_len=100, is_mock=True)
-    test_dataset = LightCurveDataset(num_samples=200, seq_len=100, is_mock=True)
+    # Generate 5000 training curves and 1000 testing curves with 100 timesteps each
+    train_dataset = LightCurveDataset(num_samples=5000, seq_len=100, is_mock=True)
+    test_dataset = LightCurveDataset(num_samples=1000, seq_len=100, is_mock=True)
     
     # Setup DataLoaders
     batch_size = 32
@@ -37,8 +37,8 @@ def main():
     # Instantiate Adam optimizer
     optimizer = torch.optim.Adam(params=model.parameters(), lr=1e-3)
     
-    # Set training epochs to 15
-    epochs = 15
+    # Set training epochs to 30
+    epochs = 30
 
     print("Beginning light curve classification training...")
     
