@@ -1,52 +1,51 @@
-# Import standard path utility library
+# Standard tool to help make directories (folders)
 import os
-# Import PyTorch library
+# PyTorch is the main engine we use to build neural networks
 import torch
-# Import DataLoader for batching
+# DataLoader is like a truck driver: it packs our stars in small batches and delivers them to the model
 from torch.utils.data import DataLoader
-# Import custom light curve dataset
+# Load the helper that cleans and structures our star datasets
 from src.data_setup import LightCurveDataset
-# Import custom 1D CNN model architecture
+# Import our robot brain model structure
 from src.model import LightCurveCNN
-# Import train and validation drivers
+# Import the training and testing steps (the teacher's lesson plans)
 from src.engine import train_epoch, test_epoch
 
-# Define main orchestrator
+# This is where the magic starts!
 def main():
-    # Print device selection info
+    # Choose if we should run on a fancy GPU (CUDA) or a standard computer CPU (the slow but steady turtle)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using training device: {device}")
     
-    # Initialize mock training and testing datasets
-    # Generate 5000 training curves and 1000 testing curves with 100 timesteps each
+    # Generate 5,000 synthetic stars for the model to practice on, and 1,000 to test it with!
     train_dataset = LightCurveDataset(num_samples=5000, seq_len=100, is_mock=True)
     test_dataset = LightCurveDataset(num_samples=1000, seq_len=100, is_mock=True)
     
-    # Setup DataLoaders
+    # Pack them in batches of 32 stars per delivery truck
     batch_size = 32
     train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False)
     
-    # Instantiate the classification model (4 classes output)
+    # Create the model brain (4 classes output: Cepheid, RR Lyrae, EB, LPV)
     model = LightCurveCNN(num_classes=4)
-    model.to(device)
+    model.to(device) # Send the brain to our processing device
     
-    # Instantiate CrossEntropyLoss suitable for multi-class classification
+    # Criterion computes the "sadness score" (loss). If the model guesses wrong, this score goes up!
     criterion = torch.nn.CrossEntropyLoss()
     
-    # Instantiate Adam optimizer
+    # Optimizer (Adam) is the tiny mechanic that adjusts the brain's settings after every guess to make it smarter.
     optimizer = torch.optim.Adam(params=model.parameters(), lr=1e-3)
     
-    # Set training epochs to 30
+    # We will run the entire school term 30 times!
     epochs = 30
 
     print("Beginning light curve classification training...")
     
-    # Run training loop
+    # Start the school term loop!
     for epoch in range(1, epochs + 1):
         print(f"\n--- Epoch {epoch}/{epochs} ---")
         
-        # Run training step
+        # 1. Let the model practice and learn!
         train_loss, train_acc = train_epoch(
             model=model,
             dataloader=train_loader,
@@ -56,8 +55,7 @@ def main():
         )
         print(f"Train Loss: {train_loss:.4f} | Train Acc: {train_acc * 100:.2f}%")
         
-        # Run test validation step
-        # Print metrics (classification report & confusion matrix) only on the final epoch
+        # 2. Test the model to see how smart it got. Only show the final detailed report at the very end!
         is_final_epoch = (epoch == epochs)
         test_loss, test_acc = test_epoch(
             model=model,
@@ -68,16 +66,14 @@ def main():
         )
         print(f"Test Loss:  {test_loss:.4f} | Test Acc:  {test_acc * 100:.2f}%")
 
-        
-    # Create models export directory
+    # School is over! Let's save the model's brain to a file so we can reuse it later without retraining.
     models_dir = "models"
     os.makedirs(models_dir, exist_ok=True)
     
-    # Save the final model weights
     save_path = os.path.join(models_dir, "star_classifier.pth")
     torch.save(obj=model.state_dict(), f=save_path)
     print(f"\nTraining completed! Model weights saved to: {save_path}")
 
-# Run main script execution guards
+# Run the program!
 if __name__ == "__main__":
     main()

@@ -5,4 +5,5 @@ data/real_light_curves/
 data/diagnostic_plots/
 mastDownload/
 lightcurve_diagnostic_plot.png
+andromeda_stars_spatial_map.png
 *.pyc
