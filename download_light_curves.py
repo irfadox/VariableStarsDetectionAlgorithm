@@ -16,33 +16,41 @@ def download_mast_light_curves(target_name="M31", output_dir="data/real_light_cu
     os.makedirs(output_dir, exist_ok=True)
     
     # Search for MAST observations based on target coordinates (M31 Andromeda coordinates)
-    # We look for time-series projects like K2, Kepler, TESS, or HST catalogs
-    obs_table = Observations.query_object(objectname=target_name, radius="0.1 deg")
+    # We look for time-series projects like K2, Kepler, or TESS catalogs within a wider 0.5 degree radius
+    obs_table = Observations.query_object(objectname=target_name, radius="0.5 deg")
     
-    # Filter observations to find time-series data collections
-    # This filters specifically for missions producing stellar light curves
+    # Filter observations to find time-series data collections for distinct target stars
     timeseries_obs = obs_table[
-        (obs_table['obs_collection'] == 'TESS') | 
-        (obs_table['obs_collection'] == 'Kepler') | 
-        (obs_table['obs_collection'] == 'K2') |
-        (obs_table['project'] == 'HST')
+        ((obs_table['obs_collection'] == 'TESS') | 
+         (obs_table['obs_collection'] == 'Kepler') | 
+         (obs_table['obs_collection'] == 'K2')) &
+        (obs_table['target_name'] != 'TESS FFI') &
+        (obs_table['target_name'] != '')
     ]
     
-    if len(timeseries_obs) == 0:
+    # Filter out duplicate target stars to ensure distinct spatial coordinates on our map!
+    unique_obs = []
+    seen_targets = set()
+    for row in timeseries_obs:
+        target = row['target_name']
+        if target not in seen_targets:
+            seen_targets.add(target)
+            unique_obs.append(row)
+            
+    if len(unique_obs) == 0:
         print("No direct TESS/Kepler time-series matches. Using standard observations...")
-        timeseries_obs = obs_table
+        unique_obs = obs_table
     else:
-        print(f"Found {len(timeseries_obs)} time-series observations in target region.")
+        print(f"Found {len(unique_obs)} unique time-series stars in target region.")
         
     downloaded_paths = []
-    print(f"Searching and downloading up to {max_files} light curve FITS files...")
+    print(f"Searching and downloading up to {max_files} distinct light curve FITS files...")
     
-    idx = 0
-    for obs in timeseries_obs:
+    for obs in unique_obs:
         if len(downloaded_paths) >= max_files:
             break
         try:
-            # Query products for this specific observation
+            # Query products for this specific unique star
             products = Observations.get_product_list(obs)
             if len(products) == 0:
                 continue
@@ -88,5 +96,5 @@ def download_mast_light_curves(target_name="M31", output_dir="data/real_light_cu
 
 # Execution guards
 if __name__ == "__main__":
-    # Run download for 3 files as validation test
-    download_mast_light_curves(target_name="M31", max_files=3)
+    # Run download for up to 8 files to build a rich spatial map of distinct stars
+    download_mast_light_curves(target_name="M31", max_files=8)

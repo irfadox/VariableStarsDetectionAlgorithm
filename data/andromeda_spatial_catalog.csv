@@ -1,4 +1,9 @@
 filename,ra,dec,predicted_class,confidence,period_days,apparent_mag,absolute_mag,distance_ly
 star_lightcurve_0.fits,10.68471,41.268749,Non-Variable / Noise,100.00%,11.3586,3.844,N/A,N/A
-star_lightcurve_1.fits,10.68471,41.268749,Non-Variable / Noise,100.00%,8.7480,3.844,N/A,N/A
-star_lightcurve_2.fits,10.68471,41.268749,Non-Variable / Noise,100.00%,8.4219,3.844,N/A,N/A
+star_lightcurve_1.fits,10.8329093604656,41.2999202306873,Non-Variable / Noise,99.99%,100.0000,18.904,N/A,N/A
+star_lightcurve_2.fits,10.4758442575876,41.2370081818509,Non-Variable / Noise,100.00%,3.0315,11.898,N/A,N/A
+star_lightcurve_3.fits,10.6291319618069,40.9537261385342,Non-Variable / Noise,100.00%,5.7224,8.690,N/A,N/A
+star_lightcurve_4.fits,10.2700465890035,41.3958053345666,Non-Variable / Noise,100.00%,8.7484,11.140,N/A,N/A
+star_lightcurve_5.fits,11.0162224459889,41.5708354263146,Non-Variable / Noise,100.00%,0.9441,8.100,N/A,N/A
+star_lightcurve_6.fits,10.1676494911669,41.4226669769944,Non-Variable / Noise,100.00%,96.5441,13.514,N/A,N/A
+star_lightcurve_7.fits,10.1532401894252,41.5274441885065,Non-Variable / Noise,100.00%,0.5486,16.163,N/A,N/A
