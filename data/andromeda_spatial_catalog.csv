@@ -1,4 +1,4 @@
 filename,ra,dec,predicted_class,confidence,period_days,apparent_mag,absolute_mag,distance_ly
-star_lightcurve_0.fits,10.68471,41.268749,Eclipsing Binary,100.00%,11.3586,3.844,N/A,N/A
-star_lightcurve_1.fits,10.68471,41.268749,Eclipsing Binary,100.00%,8.7480,3.844,N/A,N/A
-star_lightcurve_2.fits,10.68471,41.268749,Eclipsing Binary,100.00%,8.4219,3.844,N/A,N/A
+star_lightcurve_0.fits,10.68471,41.268749,Non-Variable / Noise,100.00%,11.3586,3.844,N/A,N/A
+star_lightcurve_1.fits,10.68471,41.268749,Non-Variable / Noise,100.00%,8.7480,3.844,N/A,N/A
+star_lightcurve_2.fits,10.68471,41.268749,Non-Variable / Noise,100.00%,8.4219,3.844,N/A,N/A

@@ -92,7 +92,7 @@ def test_epoch(model, dataloader, criterion, device, print_metrics=False):
     # If final epoch, print detailed precision, recall, and f1 score metrics
     if print_metrics:
         from sklearn.metrics import classification_report, confusion_matrix
-        target_names = ["Cepheid", "RR Lyrae", "Eclipsing Binary", "LPV"]
+        target_names = ["Cepheid", "RR Lyrae", "Eclipsing Binary", "LPV", "Non-Variable / Noise"]
         print("\n--- Final Epoch Evaluation Classification Report ---")
         print(classification_report(all_targets, all_predictions, target_names=target_names, zero_division=0))
         print("Confusion Matrix:")

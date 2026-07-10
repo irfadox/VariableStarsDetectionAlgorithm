@@ -39,15 +39,18 @@ def generate_mock_light_curve(star_type, length=80):
         mags = 19.0 + 0.5 * (np.sin(times * 0.8 + phase) + 0.2 * np.sin(times * 1.6 + phase))
     elif star_type == 2:  # Eclipsing Binary: flat profile with primary/secondary dips
         mags = 16.0 - 0.6 * np.abs(np.sin(times * 0.1 + phase))**8
-    else:  # Long-Period Variable (LPV): slow, high-amplitude sine wave
+    elif star_type == 3:  # Long-Period Variable (LPV): slow, high-amplitude sine wave
         mags = 12.0 + 3.0 * np.sin(times * 0.03 + phase)
+    else:  # Non-Variable / Noise: flat line with white noise
+        mags = np.full(length, 15.0, dtype=np.float32)
         
     # Add minor Gaussian noise to simulate telescope observation uncertainty
-    mags += np.random.normal(0, 0.05, length)
+    noise_std = 0.15 if star_type == 4 else 0.05
+    mags += np.random.normal(0, noise_std, length)
     
     # Return time coordinates and simulated magnitudes
     return times.astype(np.float32), mags.astype(np.float32)
-
+ 
 # Custom PyTorch Dataset to handle light curve sequences
 class LightCurveDataset(Dataset):
     # Initialize the dataset with parameters
@@ -66,8 +69,8 @@ class LightCurveDataset(Dataset):
             self.data = []
             self.labels = []
             for _ in range(num_samples):
-                # Pick a random variable star class [0, 1, 2, 3]
-                label = np.random.randint(0, 4)
+                # Pick a random variable star class [0, 1, 2, 3, 4]
+                label = np.random.randint(0, 5)
                 # Generate irregular curve
                 times, mags = generate_mock_light_curve(label)
                 # Append data and class labels
@@ -110,8 +113,10 @@ class LightCurveDataset(Dataset):
                 label = 1
             elif "eb" in filename or "binary" in filename:
                 label = 2
-            else:
+            elif "lpv" in filename or "longperiod" in filename:
                 label = 3
+            else:
+                label = 4
 
             
         # Use Lomb-Scargle periodogram to find the dominant frequency (period) of the light curve

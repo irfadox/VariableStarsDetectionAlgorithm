@@ -4,7 +4,7 @@ import torch.nn as nn
 # This is our Star Classifier! It takes in brightness curves and guesses the star type.
 class LightCurveCNN(nn.Module):
     # This is the construction yard where we prepare all our Lego blocks.
-    def __init__(self, num_classes=4):
+    def __init__(self, num_classes=5):
         # Always tell PyTorch to prepare the parent Lego set first!
         super(LightCurveCNN, self).__init__()
         

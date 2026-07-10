@@ -13,7 +13,8 @@ CLASS_NAMES = {
     0: "Cepheid Variable",
     1: "RR Lyrae",
     2: "Eclipsing Binary",
-    3: "Long-Period Variable (LPV)"
+    3: "Long-Period Variable (LPV)",
+    4: "Non-Variable / Noise"
 }
 
 def analyze_andromeda_stars(data_dir="data/real_light_curves", model_weights="models/star_classifier.pth", seq_len=100):
@@ -26,7 +27,7 @@ def analyze_andromeda_stars(data_dir="data/real_light_curves", model_weights="mo
     
     # Load model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = LightCurveCNN(num_classes=4)
+    model = LightCurveCNN(num_classes=5)
     model.load_state_dict(torch.load(model_weights, map_location=device))
     model.to(device)
     model.eval()
@@ -177,11 +178,11 @@ def analyze_andromeda_stars(data_dir="data/real_light_curves", model_weights="mo
         plt.figure(figsize=(8, 6))
         
         # Color palette for classes
-        colors = {0: 'red', 1: 'blue', 2: 'green', 3: 'orange'}
-        markers = {0: 'o', 1: 's', 2: '^', 3: 'd'}
+        colors = {0: 'red', 1: 'blue', 2: 'green', 3: 'orange', 4: 'gray'}
+        markers = {0: 'o', 1: 's', 2: '^', 3: 'd', 4: 'x'}
         
         # Plot each star category individually for a clean legend
-        for class_idx in range(4):
+        for class_idx in range(5):
             indices = [i for i, c in enumerate(plot_classes) if c == class_idx]
             if indices:
                 xs = [plot_ra[i] for i in indices]

@@ -16,7 +16,8 @@ CLASS_NAMES = {
     0: "Cepheid Variable",
     1: "RR Lyrae",
     2: "Eclipsing Binary",
-    3: "Long-Period Variable (LPV)"
+    3: "Long-Period Variable (LPV)",
+    4: "Non-Variable / Noise"
 }
 
 # Function to run inference on a single light curve file
@@ -124,7 +125,7 @@ def predict_star_class(file_path, model_weights_path="models/star_classifier.pth
     input_tensor = torch.tensor(normed_mags, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
     
     # Initialize model architecture
-    model = LightCurveCNN(num_classes=4)
+    model = LightCurveCNN(num_classes=5)
     model.load_state_dict(torch.load(model_weights_path, map_location=torch.device('cpu')))
     model.eval()
     
@@ -157,7 +158,7 @@ if __name__ == "__main__":
     print("Creating mock star light curve for testing...")
     
     # Generate mock Cepheid variable curve (sawtooth profile)
-    np.random.seed(42)
+    np.random.seed(112398747)
     t = np.sort(np.random.uniform(0, 50, 80))
     # Sawtooth approximation
     m = 15.0 + 0.8 * (np.sin(t * 0.2) + 0.3 * np.sin(t * 0.4)) + np.random.normal(0, 0.02, 80)

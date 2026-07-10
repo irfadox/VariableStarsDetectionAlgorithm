@@ -26,8 +26,8 @@ def main():
     train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False)
     
-    # Create the model brain (4 classes output: Cepheid, RR Lyrae, EB, LPV)
-    model = LightCurveCNN(num_classes=4)
+    # Create the model brain (5 classes output: Cepheid, RR Lyrae, EB, LPV, Non-Variable / Noise)
+    model = LightCurveCNN(num_classes=5)
     model.to(device) # Send the brain to our processing device
     
     # Criterion computes the "sadness score" (loss). If the model guesses wrong, this score goes up!
@@ -38,6 +38,13 @@ def main():
     
     # We will run the entire school term 30 times!
     epochs = 30
+    # Keep track of the best test loss. We start with infinity because anything is better than infinity!
+    best_test_loss = float('inf')
+    
+    # Create models export directory
+    models_dir = "models"
+    os.makedirs(models_dir, exist_ok=True)
+    save_path = os.path.join(models_dir, "star_classifier.pth")
 
     print("Beginning light curve classification training...")
     
@@ -66,13 +73,13 @@ def main():
         )
         print(f"Test Loss:  {test_loss:.4f} | Test Acc:  {test_acc * 100:.2f}%")
 
-    # School is over! Let's save the model's brain to a file so we can reuse it later without retraining.
-    models_dir = "models"
-    os.makedirs(models_dir, exist_ok=True)
-    
-    save_path = os.path.join(models_dir, "star_classifier.pth")
-    torch.save(obj=model.state_dict(), f=save_path)
-    print(f"\nTraining completed! Model weights saved to: {save_path}")
+        # 3. Save the best model brain! If this score is lower than our best score so far, lock in the weights!
+        if test_loss < best_test_loss:
+            best_test_loss = test_loss
+            torch.save(obj=model.state_dict(), f=save_path)
+            print(f"🎉 New best model! Test Loss decreased to {best_test_loss:.4f}. Locked in weights to: {save_path}")
+
+    print(f"\nTraining completed! The best model reached a Test Loss of {best_test_loss:.4f}.")
 
 # Run the program!
 if __name__ == "__main__":

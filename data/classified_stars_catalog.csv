@@ -1,4 +1,4 @@
 filename,predicted_class,confidence,identified_period
-star_lightcurve_0.fits,Eclipsing Binary,100.00%,11.3586
-star_lightcurve_1.fits,Eclipsing Binary,100.00%,8.7480
-star_lightcurve_2.fits,Eclipsing Binary,100.00%,8.4219
+star_lightcurve_0.fits,Non-Variable / Noise,100.00%,11.3586
+star_lightcurve_1.fits,Non-Variable / Noise,100.00%,8.7480
+star_lightcurve_2.fits,Non-Variable / Noise,100.00%,8.4219

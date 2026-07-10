@@ -12,7 +12,8 @@ CLASS_NAMES = {
     0: "Cepheid Variable",
     1: "RR Lyrae",
     2: "Eclipsing Binary",
-    3: "Long-Period Variable (LPV)"
+    3: "Long-Period Variable (LPV)",
+    4: "Non-Variable / Noise"
 }
 
 def load_star_data(file_path):
@@ -99,7 +100,7 @@ def classify_curves(data_dir="data/real_light_curves", model_weights="models/sta
     
     # Load model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = LightCurveCNN(num_classes=4)
+    model = LightCurveCNN(num_classes=5)
     model.load_state_dict(torch.load(model_weights, map_location=device))
     model.to(device)
     model.eval()
