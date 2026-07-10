@@ -1,3 +1,8 @@
+# =================================================================================
+# PREDICT.PY - Single Star Inference & Diagnostic Visualizer
+# For a conceptual explanation of how this fits into the project, see:
+# walkthrough_guide.md (at the repository or workspace root)
+# =================================================================================
 # Import standard os library to handle path checks
 import os
 # Import numpy for math operations and sorting

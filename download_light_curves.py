@@ -1,3 +1,8 @@
+# =================================================================================
+# DOWNLOAD_LIGHT_CURVES.PY - TESS/Kepler Star Downloader
+# For a conceptual explanation of how this fits into the project, see:
+# walkthrough_guide.md (at the repository or workspace root)
+# =================================================================================
 # Import standard os library to handle directory creation
 import os
 # Import astropy units to define coordinate query search radii

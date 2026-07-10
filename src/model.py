@@ -1,3 +1,8 @@
+# =================================================================================
+# MODEL.PY - 1D CNN Neural Network Structure
+# For a conceptual explanation of how this fits into the project, see:
+# walkthrough_guide.md (at the repository or workspace root)
+# =================================================================================
 # Import the neural network blocks from PyTorch (we use these like Lego bricks!)
 import torch.nn as nn
 

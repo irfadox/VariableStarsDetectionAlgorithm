@@ -1,3 +1,8 @@
+# =================================================================================
+# ANALYZE_ANDROMEDA_REGION.PY - TESS Star Classifier & Distance Estimator
+# For a conceptual explanation of how this fits into the project, see:
+# walkthrough_guide.md (at the repository or workspace root)
+# =================================================================================
 import os
 import glob
 import numpy as np

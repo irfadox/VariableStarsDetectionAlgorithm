@@ -1,3 +1,8 @@
+# =================================================================================
+# TRAIN.PY - Model Training Orchestrator
+# For a conceptual explanation of how this fits into the project, see:
+# walkthrough_guide.md (at the repository or workspace root)
+# =================================================================================
 # Standard tool to help make directories (folders)
 import os
 # PyTorch is the main engine we use to build neural networks

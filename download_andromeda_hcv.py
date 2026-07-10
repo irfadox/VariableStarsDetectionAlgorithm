@@ -1,3 +1,8 @@
+# =================================================================================
+# DOWNLOAD_ANDROMEDA_HCV.PY - Hubble M31 Variable Stars Downloader
+# For a conceptual explanation of how this fits into the project, see:
+# walkthrough_guide.md (at the repository or workspace root)
+# =================================================================================
 import os
 import requests
 import json

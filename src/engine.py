@@ -1,3 +1,8 @@
+# =================================================================================
+# ENGINE.PY - Model Training & Evaluation Epoch Loops
+# For a conceptual explanation of how this fits into the project, see:
+# walkthrough_guide.md (at the repository or workspace root)
+# =================================================================================
 # Import PyTorch core library
 import torch
 
