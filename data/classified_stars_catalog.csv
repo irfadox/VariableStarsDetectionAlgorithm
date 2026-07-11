@@ -1,9 +1,0 @@
-filename,predicted_class,confidence,identified_period
-star_lightcurve_0.fits,Non-Variable / Noise,100.00%,11.3586
-star_lightcurve_1.fits,Non-Variable / Noise,99.99%,100.0000
-star_lightcurve_2.fits,Non-Variable / Noise,100.00%,3.0315
-star_lightcurve_3.fits,Non-Variable / Noise,100.00%,5.7224
-star_lightcurve_4.fits,Non-Variable / Noise,100.00%,8.7484
-star_lightcurve_5.fits,Non-Variable / Noise,100.00%,0.9441
-star_lightcurve_6.fits,Non-Variable / Noise,100.00%,96.5441
-star_lightcurve_7.fits,Non-Variable / Noise,100.00%,0.5486

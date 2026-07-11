@@ -1,91 +1,96 @@
-# Andromeda Stars Classification & Spatial Mapping Algorithm
+# Andromeda Variable Stars Classification Algorithm
 
-This project implements an end-to-end pipeline in PyTorch to classify variable stars (Cepheid, RR Lyrae, Eclipsing Binary, LPV, or Non-Variable / Noise) using light-curve data from the MAST survey archives (TESS/Kepler for Milky Way foreground stars, and Hubble Catalog of Variables for actual resolved stars inside the Andromeda Galaxy).
+This project implements an end-to-end deep learning pipeline in PyTorch to **detect and classify variable stars inside the Andromeda Galaxy (M31)** using light-curve data from the **Hubble Catalog of Variables (HCV)** — real, high-resolution observations made by the Hubble Space Telescope.
+
+> **Why Hubble and not TESS?** Wide-field surveys like TESS have pixels spanning 21 arcseconds of sky — large enough to blend thousands of M31 stars together. Only Hubble's sharp resolution can isolate and measure individual stars inside Andromeda. See [walkthrough_guide.md](walkthrough_guide.md) for a full explanation.
 
 ---
 
 ## 🌟 Key Features
 
-1. **Lomb-Scargle Phase Folding**: Automatically identifies the dominant period of unevenly sampled light curves using `astropy.timeseries.LombScargle`, phase-folds the observation times, and aligns the magnitudes.
-2. **Upgraded 5-Class 1D CNN Classifier**: Built with PyTorch using Batch Normalization (`BatchNorm1d`), Dropout, and 3 convolutional layers (filter depths 32/64/128), achieving **99.5% classification accuracy**. Supports five categories:
-   * Cepheid Variable
-   * RR Lyrae
-   * Eclipsing Binary
-   * Long-Period Variable (LPV)
-   * **Non-Variable / Noise** (filters out stable background stars)
-3. **Best Model Checkpointing**: Tracks test loss during training and automatically saves the best performing model weights to `models/star_classifier.pth`.
-4. **Andromeda Spatial Mapping & Distance Estimator**: Extracts celestial coordinates (`RA`, `Dec`) and magnitudes from light-curve headers/files to map stars in a 2D spatial scatter plot and calculate distance modulus values (in light-years) for standard candle stars.
-5. **Diagnostic Plot Visualizer**: `predict.py` automatically generates a 3-panel diagnostic visualization (`lightcurve_diagnostic_plot.png`) containing:
-   - **Panel 1**: Raw Light Curve observations over time.
-   - **Panel 2**: Lomb-Scargle Periodogram showing the identified period peak.
-   - **Panel 3**: Phase Folded Light Curve overlaid with the interpolated profile evaluated by the model.
+1. **Lomb-Scargle Phase Folding**: Automatically identifies the dominant period of unevenly-sampled Hubble light curves using `astropy.timeseries.LombScargle`, phase-folds the observations, and aligns the magnitude profile.
+2. **5-Class 1D CNN Classifier**: Built with PyTorch using Batch Normalization, Dropout, and 3 convolutional layers (32/64/128 filters), achieving **99.5% classification accuracy** on five categories:
+   - Cepheid Variable
+   - RR Lyrae
+   - Eclipsing Binary
+   - Long-Period Variable (LPV)
+   - Non-Variable / Noise
+3. **Best Model Checkpointing**: Tracks validation loss during training and saves the best-performing weights to `models/star_classifier.pth`.
+4. **Andromeda Spatial Map & Distance Estimator**: Uses standard candle period-luminosity relations (Cepheid PL, RR Lyrae absolute magnitude) to calculate distances in light-years, and plots a 2D spatial map of classified stars overlaid on M31's coordinates.
+5. **Diagnostic Visualizer**: `predict.py` generates a 3-panel diagnostic plot (`lightcurve_diagnostic_plot.png`) showing:
+   - **Panel 1**: Raw light curve (magnitude vs. time)
+   - **Panel 2**: Lomb-Scargle periodogram with the identified peak
+   - **Panel 3**: Phase-folded light curve with the interpolated model input profile
 
 ---
 
 ## 📦 Installation & Setup
 
-Install the required astronomy, deep learning, and UI dependencies:
 ```bash
-pip install torch astropy astroquery matplotlib scikit-learn gradio pandas
+pip install torch astropy astroquery matplotlib scikit-learn gradio pandas requests
 ```
 
 ---
 
 ## 🚀 How to Run
 
-### Option A: Actual Andromeda Stars (Hubble Catalog of Variables - HCV)
-Because TESS pixels are very large ($21$ arcseconds), they only detect bright **foreground Milky Way stars** along the line of sight to Andromeda. To classify actual resolved stars **inside** Andromeda (M31), we use the Hubble Catalog of Variables (HCV):
-
-#### Step 1: Download Resolved M31 Variable Stars from Hubble
-Query the MAST API to download the time-series magnitude observations of variable candidates resolved by Hubble inside Andromeda:
-```bash
-python3 download_andromeda_hcv.py
-```
-This saves the light-curve CSV tables to `data/andromeda_real_hcv/`.
-
-#### Step 2: Classify HCV Variables and Map Distances
-Analyze the Hubble light curves, run CNN inference, estimate absolute magnitudes and distances, and plot their spatial layout:
-```bash
-python3 classify_hcv_variables.py
-```
-This outputs [hcv_spatial_catalog.csv](file:///Users/kima/CodeProjects/VariableStarsDetectionAlgorithm/data/hcv_spatial_catalog.csv) and plots [hcv_stars_spatial_map.png](file:///Users/kima/CodeProjects/VariableStarsDetectionAlgorithm/hcv_stars_spatial_map.png).
-* **Distance modulus verification:** Standard candle stars (Cepheids and RR Lyrae) return estimated distances of **$800,000 \text{ to } 1,750,000\text{ light-years}$**, confirming their extragalactic location inside/near Andromeda (compared to Milky Way scale of ~100k ly).
-
----
-
-### Option B: Foreground Stars (TESS/Kepler Wide-Field Survey)
-
-#### Step 1: Download TESS unique stars
-Query and download TESS light curves near Andromeda coordinates:
-```bash
-python3 download_light_curves.py
-```
-This saves downloaded files to `data/real_light_curves/`.
-
-#### Step 2: Train the Classifier Model
-Train the 1D CNN for 30 epochs on preprocessed phase-folded curves:
+### Step 1: Train the Classifier Model
+Train the 1D CNN for 30 epochs on synthetically generated phase-folded light curves:
 ```bash
 python3 train.py
 ```
-This will print epoch losses, display the final evaluation metrics, and save the best weights to `models/star_classifier.pth`.
+This prints epoch losses, displays final evaluation metrics, and saves the best model weights to `models/star_classifier.pth`.
 
-#### Step 3: Run Foreground Star Spatial Mapping & Analysis
-Analyze all TESS unique stars, output a spreadsheet, and draw a spatial distribution map:
+### Step 2: Download Resolved M31 Variable Stars from Hubble
+Query the MAST API for time-series observations of variable candidates resolved by Hubble inside Andromeda:
 ```bash
-python3 analyze_andromeda_region.py
+python3 download_andromeda_hcv.py
 ```
-This saves the catalog spreadsheet to `data/andromeda_spatial_catalog.csv` and saves the spatial scatter plot to `andromeda_stars_spatial_map.png`.
+This saves light-curve CSVs to `data/andromeda_real_hcv/`.
 
-#### Step 4: Run Inference & Save Diagnostic Plots
-Run predictions on any light-curve CSV or FITS file:
+### Step 3: Classify HCV Variables and Map Distances
+Run CNN inference on the Hubble light curves, estimate distances via distance modulus, and plot a spatial map:
+```bash
+python3 classify_hcv_variables.py
+```
+Outputs:
+- `data/hcv_spatial_catalog.csv` — classification results and distances per star
+- `hcv_stars_spatial_map.png` — 2D scatter plot of variable stars over M31
+
+> **Distance verification:** Cepheids and RR Lyrae stars return estimated distances of **800,000 – 1,750,000 light-years**, confirming they are extragalactic and located inside/near Andromeda (compared to the Milky Way's ~100,000 ly diameter).
+
+### Step 4: Run Inference on a Single Star
+Predict the class of any light-curve file (CSV or FITS) and generate a diagnostic plot:
 ```bash
 python3 predict.py
 ```
 
-#### Step 5: Run the Gradio Web App UI
-Launch the interactive web page UI:
+### Step 5: Launch the Interactive Web App
+Start the Gradio UI to upload and classify stars through a browser:
 ```bash
 python3 app.py
 ```
 Open [http://localhost:7860](http://localhost:7860) in your browser.
 
+---
+
+## 📁 Project Structure
+
+```
+.
+├── train.py                    # Trains the CNN model on synthetic light curves
+├── predict.py                  # Classifies a single star file and generates diagnostic plots
+├── app.py                      # Gradio web app for interactive classification
+├── download_andromeda_hcv.py   # Downloads Hubble HCV variable star light curves for M31
+├── classify_hcv_variables.py   # Classifies HCV stars, estimates distances, creates spatial map
+├── src/
+│   ├── model.py                # 1D CNN architecture definition
+│   ├── data_setup.py           # Synthetic dataset generator and DataLoader setup
+│   └── engine.py               # Training and evaluation epoch loops
+├── models/
+│   └── star_classifier.pth     # Saved best model weights (generated by train.py)
+├── data/
+│   ├── andromeda_real_hcv/     # Downloaded Hubble HCV light curves (git-ignored)
+│   └── hcv_spatial_catalog.csv # Classification results catalog
+└── requirements.txt
+```
