@@ -87,6 +87,17 @@ PROTOTYPE_STARS = [
 def download_tess_lightcurve(search_name: str, known_period_days: float):
     """
     Download and stitch TESS light curves for `search_name`.
+
+    Strategy:
+    - Short-period stars (P < 100 d): download the single best sector.
+    - Long-period variables (P >= 100 d, e.g. LPVs):
+        TESS observes in 27-day windows. A 460-day period is invisible in one
+        sector. We download ALL QLP sectors (consistent BTJD time system) and
+        stitch them. R Lyrae has QLP data from Sector 14 (2019) to Sector 81
+        (2024) — ~5 years baseline — giving Lomb-Scargle multiple full cycles.
+        We use QLP only (not SPOC or TASOC) to avoid mixing different time
+        reference epochs which cause the baseline calculation to go negative.
+
     Returns (times_days, magnitudes) as numpy arrays, or (None, None) on failure.
     """
     print(f"  Searching MAST for TESS data on '{search_name}'...")
@@ -96,31 +107,64 @@ def download_tess_lightcurve(search_name: str, known_period_days: float):
             print(f"  WARNING: No TESS light curves found for '{search_name}'.")
             return None, None
 
-        # Download the first available sector (fastest; usually enough for period finding)
-        lc = results[0].download()
-        if lc is None:
-            print(f"  WARNING: Download returned None for '{search_name}'.")
-            return None, None
+        # For LPVs: use only QLP sectors for a consistent time system, then stitch
+        import tempfile, shutil
+        tmpdir = tempfile.mkdtemp(prefix="lk_validate_")
+
+        if known_period_days >= 100:
+            # Filter to QLP pipeline which uses a single consistent time reference
+            qlp_mask = ["QLP" in str(a) for a in results.author]
+            qlp_results = results[qlp_mask] if any(qlp_mask) else results
+            n_sectors = len(qlp_results)
+            print(f"  Long-period star (P≈{known_period_days:.0f} d) "
+                  f"— downloading {n_sectors} QLP sectors and stitching...")
+            lc_collection = qlp_results.download_all(
+                download_dir=tmpdir, show_progress_bar=False
+            )
+            if lc_collection is None or len(lc_collection) == 0:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+                print(f"  WARNING: Download returned empty collection for '{search_name}'.")
+                return None, None
+            lc = lc_collection.stitch(corrector_func=None)  # skip auto-normalize
+        else:
+            lc = results[0].download(download_dir=tmpdir, show_progress_bar=False)
+            if lc is None:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+                print(f"  WARNING: Download returned None for '{search_name}'.")
+                return None, None
 
         # Use SAP flux if available, fall back to whatever flux column exists
         flux_col = "sap_flux" if "sap_flux" in lc.columns else "flux"
         lc = lc.select_flux(flux_col)
-
-        # Remove NaN and obvious outliers
         lc = lc.remove_nans()
         lc = lc.remove_outliers(sigma=5)
 
-        times_days = lc.time.value
-        flux_vals  = lc[flux_col].value
+        times_days = np.array(lc.time.value, dtype=float)
+        flux_vals  = np.array(lc[flux_col].value, dtype=float)
 
-        # Convert flux to magnitude proxy so it matches our training data format:
-        # magnitude ∝ −2.5 * log10(flux).  We normalise so only shape matters.
+        # ── All data now in numpy arrays — safe to delete the temp FITS files ──
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+        # ── Sort by time (critical for stitched multi-sector data) ─────────────
+        order      = np.argsort(times_days)
+        times_days = times_days[order]
+        flux_vals  = flux_vals[order]
+
+        # Convert flux to magnitude proxy: magnitude ∝ −2.5 * log10(flux)
         with np.errstate(divide="ignore", invalid="ignore"):
             mags = -2.5 * np.log10(np.abs(flux_vals) + 1e-10)
 
         # Remove non-finite values after log
         mask = np.isfinite(times_days) & np.isfinite(mags)
-        return times_days[mask], mags[mask]
+        times_out = times_days[mask]
+        mags_out  = mags[mask]
+
+        if known_period_days >= 100:
+            baseline = np.ptp(times_out) if len(times_out) > 1 else 0
+            print(f"  Stitched {len(times_out):,} data points spanning {baseline:.0f} days "
+                  f"({baseline/known_period_days:.1f}× the expected period).")
+
+        return times_out, mags_out
 
     except Exception as exc:
         print(f"  ERROR downloading '{search_name}': {exc}")
@@ -133,7 +177,10 @@ def phase_fold_and_classify(times, mags, known_period, device, model):
     Returns (predicted_class_idx, confidence_pct, ls_period, all_probs).
     """
     # ── Lomb-Scargle ──────────────────────────────────────────────────────────
-    min_freq = 1.0 / min(500.0, 0.8 * (times[-1] - times[0]))
+    # Use np.ptp (max − min) for baseline — never goes negative even on
+    # multi-sector stitched data whose time axis may not be monotonic
+    baseline = np.ptp(times)          # total span in days
+    min_freq = 1.0 / max(baseline * 0.8, 1.0)   # at least 1/1-day to avoid div-by-zero
     max_freq = 20.0   # cycles / day  (period down to 0.05 days)
     frequency, power = LombScargle(times, mags).autopower(
         minimum_frequency=min_freq,

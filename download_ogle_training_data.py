@@ -11,7 +11,7 @@ import numpy as np
 
 BASE_URL = "https://www.astrouw.edu.pl/ogle/ogle4/OCVS"
 OUTPUT_DIR = "data/ogle_training"
-N_PER_CLASS = 300   # How many light curves to download per class
+N_PER_CLASS = 1000   # How many light curves to download per class
 
 CATALOGS = [
     ("cepheid", "lmc", "cep", "OGLE-LMC-CEP-", 2, 4620, "lmc/cep/phot/I"),

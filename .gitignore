@@ -9,3 +9,4 @@ data/ogle_training/
 data/validation_plots/
 data/validation_results.csv
 *.pyc
+.DS_Store
