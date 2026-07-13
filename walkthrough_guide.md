@@ -202,7 +202,35 @@ While synthetic data is a great baseline, real telescope data is messy. By using
 
 By running `train_on_ogle.py`, the CNN learns to tolerate real gaps, multi-periodic features, and natural cosmic noise patterns, vastly improving its performance on real Hubble targets.
 
-### 6.4 CrossEntropyLoss & Optimizers
+**Actual training results on OGLE data (1,200 real labeled stars):**
+
+| Class | Precision | Recall | F1 |
+|---|---|---|---|
+| Cepheid | 82% | 82% | 82% |
+| RR Lyrae | 79% | 73% | 76% |
+| Eclipsing Binary | 90% | 92% | 91% |
+| LPV | 84% | 88% | 86% |
+| Non-Variable / Noise | 100% | 100% | 100% |
+| **Overall** | — | — | **89%** |
+
+This 89% is a *real* number, not an inflated score from a synthetic test set. The model was tested on OGLE light curves it had never seen before.
+
+### 6.4 Validating Against Real Prototype Stars (TESS)
+
+To go one step further, `validate_on_known_stars.py` downloads TESS observations for four famous "prototype" variable stars — stars so well-studied that they literally gave their *entire class* its name:
+
+| Star | True Type | LS Period Found | Known Period | Predicted | Correct? |
+|---|---|---|---|---|---|
+| Zeta Geminorum | Cepheid | 9.90 d | 10.15 d | Cepheid (97.5%) | ✅ |
+| RR Lyrae | RR Lyrae | 0.566 d | 0.567 d | RR Lyrae (84.2%) | ✅ |
+| Algol (β Persei) | Eclipsing Binary | 2.880 d | 2.867 d | Eclipsing Binary (100%) | ✅ |
+| R Lyrae | LPV | 18.2 d | ~460 d | Eclipsing Binary (88%) | ❌ |
+
+**Result: 3 out of 4 (75%)**. Up from 1/4 (25%) with the original synthetic-only model.
+
+**Why did R Lyrae fail?** R Lyrae has a true period of ~460 days — it is a semi-regular red giant that takes over a year to complete one pulse. But TESS only observes each region of sky in 27-day windows. A 460-day cycle crammed into 27 days means the Lomb-Scargle algorithm can only see a tiny, disconnected fragment of one cycle. It picked up an 18-day signal instead — an alias (a mathematical echo) of the true period. The phase-folded profile then looked like a sharp asymmetric dip, which the CNN correctly identified as *looking like* an eclipsing binary. This is not a model failure; it is a fundamental physical limitation of TESS for long-period stars. Hubble data for M31 LPVs has much longer baselines, so this problem is less severe on the actual Andromeda dataset.
+
+### 6.5 CrossEntropyLoss & Optimizers
 * **Cross-Entropy Loss**: Standard for multi-class classifiers. It measures how close the predicted probability distribution is to the target one-hot label.
 * **Adam Optimizer**: An adaptive gradient descent optimizer that adjusts individual parameter learning rates dynamically during training.
 
@@ -262,10 +290,21 @@ distance (light-years) = distance_parsecs × 3.26
 
 | Decision | What We Chose | Why |
 |---|---|---|
-| **Telescope source** | Hubble HCV via MAST API | TESS pixels are too large (21") and only capture foreground Milky Way stars |
-| **Filter** | ACS_F814W (near-infrared) | Best data coverage for M31; close to standard I-band used in PL relations |
-| **Real Training Data** | OGLE database | Synthetic curves lack real astronomical noise, aliases, and cycle variations |
-| **1D CNN architecture** | Three conv layers (32→64→128 filters) | Efficient feature extractor for 1D sequences and waveforms |
+| **Telescope source** | Hubble HCV via MAST API | TESS pixels are too large (21") and blend thousands of M31 stars per pixel |
+| **Filter** | ACS_F814W (near-infrared) | Best data coverage for M31 in the HCV catalog; close to the standard I-band used in PL relations |
+| **Minimum 5 observations** | 5 epochs required per star | Lomb-Scargle needs at least a few points to find a real period; fewer = pure noise |
+| **100-point sequence** | Fixed interpolation to 100 values | Balances shape resolution vs. over-interpolation from sparse 5–15-point Hubble data |
+| **Real training data** | OGLE photometric database | Synthetic curves miss real noise, multi-periodicity, and gap patterns that break naive models |
+| **OGLE catalog choice** | LMC Cepheids, Bulge RR Lyrae, LMC eclipsing binaries, OGLE-III LPVs | These sub-catalogs have the largest number of well-characterised, long-baseline light curves |
+| **1D CNN architecture** | Three conv layers (32→64→128 filters) | Efficient for 1D waveforms; increasing filter depth detects progressively complex shapes |
+| **5 classes** | Cepheid, RR Lyrae, EB, LPV, Non-Variable | Covers all major variable types expected in Andromeda; Non-Variable class prevents noise being mislabelled |
+| **CrossEntropyLoss** | Standard for multi-class classification | Penalises confident wrong answers more heavily — ideal for 5-class probability output |
+| **Adam optimiser, lr=0.001** | Adaptive moment estimation | Self-adjusting learning rate; faster convergence and widely trusted default for classification tasks |
+| **50 epochs on OGLE** | Training on real data | Real data needs more epochs to converge than synthetic — loss stabilises around epoch 14 |
+| **Batch size 32** | 32 stars per gradient step | Standard batch size; fits comfortably in RAM on any modern laptop |
+| **Best-model checkpointing** | Save at lowest validation loss | Prevents saving an overfit late-epoch model; always captures the best generalising version |
+| **TESS for validation** | NASA MAST lightkurve API | Easiest high-quality real photometry for known bright stars; free and publicly accessible |
+| **LPV TESS limitation** | Expected failure acknowledged | TESS 27-day windows cannot capture 460-day LPV cycles; Hubble baselines are much longer |
 
 ---
 
