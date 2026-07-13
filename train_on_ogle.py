@@ -67,7 +67,9 @@ def process_lightcurve(times, mags, seq_len=SEQ_LEN):
 
         frequency, power = LombScargle(times, mags).autopower(
             minimum_frequency=min_freq,
-            maximum_frequency=max_freq
+            maximum_frequency=max_freq,
+            samples_per_peak=2,
+            nyquist_factor=1
         )
 
         if len(power) == 0:
