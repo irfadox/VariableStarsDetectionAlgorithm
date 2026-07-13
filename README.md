@@ -15,49 +15,71 @@ This project implements an end-to-end deep learning pipeline in PyTorch to **det
    - Eclipsing Binary
    - Long-Period Variable (LPV)
    - Non-Variable / Noise
-3. **Best Model Checkpointing**: Tracks validation loss during training and saves the best-performing weights to `models/star_classifier.pth`.
-4. **Andromeda Spatial Map & Distance Estimator**: Uses standard candle period-luminosity relations (Cepheid PL, RR Lyrae absolute magnitude) to calculate distances in light-years, and plots a 2D spatial map of classified stars overlaid on M31's coordinates.
-5. **Diagnostic Visualizer**: `predict.py` generates a 3-panel diagnostic plot (`lightcurve_diagnostic_plot.png`) showing:
-   - **Panel 1**: Raw light curve (magnitude vs. time)
-   - **Panel 2**: Lomb-Scargle periodogram with the identified peak
-   - **Panel 3**: Phase-folded light curve with the interpolated model input profile
+3. **Synthetic & Real-World Labeled Training (OGLE)**: Supports training either on fast synthetic light curves or on **real expert-labeled time-series photometry** downloaded from the Optical Gravitational Lensing Experiment (OGLE) database.
+4. **Real-Data Prototype Validation**: Includes a validation script that downloads known prototype stars (like RR Lyrae and Algol) from TESS using NASA's `lightkurve` API to test how well the CNN generalizes to real photometry.
+5. **Andromeda Spatial Map & Distance Estimator**: Uses standard candle period-luminosity relations (Cepheid PL, RR Lyrae absolute magnitude) to calculate distances in light-years, and plots a 2D spatial map of classified stars overlaid on M31's coordinates.
+6. **Diagnostic Visualizer**: `predict.py` generates a 3-panel diagnostic plot (`lightcurve_diagnostic_plot.png`) showing raw light curves, Lomb-Scargle power spectra, and phase-folded profiles.
 
 ---
 
 ## 📦 Installation & Setup
 
 ```bash
-pip install torch astropy astroquery matplotlib scikit-learn gradio pandas requests
+pip install torch astropy astroquery matplotlib scikit-learn gradio pandas requests lightkurve
 ```
 
 ---
 
 ## 🚀 How to Run
 
-### Step 1: Train the Classifier Model
+### Option A: Standard Synthetic Training & Hubble Inference
+
+#### Step 1: Train the Classifier Model (Synthetic)
 Train the 1D CNN for 30 epochs on synthetically generated phase-folded light curves:
 ```bash
 python3 train.py
 ```
-This prints epoch losses, displays final evaluation metrics, and saves the best model weights to `models/star_classifier.pth`.
 
-### Step 2: Download Resolved M31 Variable Stars from Hubble
-Query the MAST API for time-series observations of variable candidates resolved by Hubble inside Andromeda:
+#### Step 2: Download M31 Variable Stars from Hubble
+Query MAST for variable candidates resolved by Hubble inside Andromeda:
 ```bash
 python3 download_andromeda_hcv.py
 ```
-This saves light-curve CSVs to `data/andromeda_real_hcv/`.
 
-### Step 3: Classify HCV Variables and Map Distances
-Run CNN inference on the Hubble light curves, estimate distances via distance modulus, and plot a spatial map:
+#### Step 3: Classify HCV Variables and Map Distances
+Classify Hubble stars, estimate distances via distance modulus, and plot a spatial map:
 ```bash
 python3 classify_hcv_variables.py
 ```
-Outputs:
-- `data/hcv_spatial_catalog.csv` — classification results and distances per star
-- `hcv_stars_spatial_map.png` — 2D scatter plot of variable stars over M31
 
-> **Distance verification:** Cepheids and RR Lyrae stars return estimated distances of **800,000 – 1,750,000 light-years**, confirming they are extragalactic and located inside/near Andromeda (compared to the Milky Way's ~100,000 ly diameter).
+---
+
+### Option B: Real Labeled Data Training & Validation (OGLE + TESS)
+
+To train on real-world stellar observations and validate against known astronomical prototypes:
+
+#### Step 1: Download Real Labeled Light Curves from OGLE
+Download 300 real time-series photometry records per class from the OGLE database:
+```bash
+python3 download_ogle_training_data.py
+```
+This saves raw light curve records under `data/ogle_training/`.
+
+#### Step 2: Retrain the CNN on Real Data
+Process the OGLE light curves and retrain the model weights:
+```bash
+python3 train_on_ogle.py
+```
+This overwrites the saved model in `models/star_classifier.pth` with weights trained on real stellar physics.
+
+#### Step 3: Validate Against Known Prototype Stars
+Download TESS light curves for famous benchmark stars (e.g. RR Lyrae, Zeta Geminorum, Algol) and evaluate the model's accuracy on real data:
+```bash
+python3 validate_on_known_stars.py
+```
+This outputs classification reports and generates diagnostic plots in `data/validation_plots/`.
+
+---
 
 ### Step 4: Run Inference on a Single Star
 Predict the class of any light-curve file (CSV or FITS) and generate a diagnostic plot:
@@ -79,18 +101,23 @@ Open [http://localhost:7860](http://localhost:7860) in your browser.
 ```
 .
 ├── train.py                    # Trains the CNN model on synthetic light curves
+├── train_on_ogle.py            # Trains the CNN on real OGLE light curves
+├── download_ogle_training_data.py # Downloads real labeled light curves from OGLE
+├── validate_on_known_stars.py  # Evaluates the model on TESS benchmark prototype stars
 ├── predict.py                  # Classifies a single star file and generates diagnostic plots
 ├── app.py                      # Gradio web app for interactive classification
 ├── download_andromeda_hcv.py   # Downloads Hubble HCV variable star light curves for M31
 ├── classify_hcv_variables.py   # Classifies HCV stars, estimates distances, creates spatial map
 ├── src/
 │   ├── model.py                # 1D CNN architecture definition
-│   ├── data_setup.py           # Synthetic dataset generator and DataLoader setup
+│   ├── data_setup.py           # Synthetic dataset generator and Dataset setup
 │   └── engine.py               # Training and evaluation epoch loops
 ├── models/
-│   └── star_classifier.pth     # Saved best model weights (generated by train.py)
+│   └── star_classifier.pth     # Saved best model weights
 ├── data/
 │   ├── andromeda_real_hcv/     # Downloaded Hubble HCV light curves (git-ignored)
+│   ├── ogle_training/          # Labeled light curves from the OGLE database (git-ignored)
+│   ├── validation_plots/       # Saved diagnostic validation plots (git-ignored)
 │   └── hcv_spatial_catalog.csv # Classification results catalog
 └── requirements.txt
 ```

@@ -33,6 +33,11 @@ To do that, we:
 4. Use the classification to estimate the distance to each star using physics equations.
 5. Plot all of them on a sky map so you can see where they physically sit inside Andromeda.
 
+To make the AI highly robust, we can train it in two ways:
+* **Synthetically**: Generate simulated clean light curves to learn basic shapes.
+* **On Real Data**: Download real, expert-labeled variable star light curves from the Optical Gravitational Lensing Experiment (**OGLE**) database.
+We also validate our AI against real benchmark prototype stars (like RR Lyrae and Algol) using NASA's **TESS** observations.
+
 ---
 
 ## 2. Astronomy Foundations
@@ -187,36 +192,19 @@ A **1D Convolutional Neural Network** is ideal for sequential data. Our phase-fo
 
 A convolutional layer works by sliding a small **filter** (e.g., a window of 5 numbers) across the sequence and at each position asking: "does this local shape match my filter?" This is perfect for detecting local features like dips, peaks, and slopes anywhere in the sequence — even if the shape appears at a slightly different phase position in different stars.
 
-### 6.3 What Is Synthetic Training Data?
+### 6.3 Real Training Data: The OGLE Database
 
-A real problem: we need *thousands* of labelled examples to train a neural network, but the HCV data for M31 has only ~15 good light curves. How do we train?
+While synthetic data is a great baseline, real telescope data is messy. By using `download_ogle_training_data.py`, we retrieve **real time-series photometry** from the OGLE project. These are genuine light curves of variable stars classified manually by expert astronomers.
+* **Cepheids**: 300 real fundamental-mode variables in the LMC.
+* **RR Lyrae**: 300 real RRab variables in the Galactic Bulge.
+* **Eclipsing Binaries**: 300 real binaries in the LMC.
+* **LPVs**: 300 real Mira / semi-regular variables in the LMC.
 
-We **synthesise** training data. `src/data_setup.py` generates mathematically correct simulated light curves:
-- For Cepheids: a sawtooth-like sine wave with the right asymmetry, plus random Gaussian noise.
-- For RR Lyrae: a faster, more symmetric bump, with added noise.
-- For Eclipsing Binaries: mostly flat line with one or two sharp dips at specific phases, plus noise.
-- For LPVs: a slow, broad, somewhat messy wave.
-- For Non-Variable/Noise: a flat line with pure noise.
+By running `train_on_ogle.py`, the CNN learns to tolerate real gaps, multi-periodic features, and natural cosmic noise patterns, vastly improving its performance on real Hubble targets.
 
-We generate **5,000 training examples** and **1,000 test examples**. Because these are mathematical simulations of known wave types, they are perfectly labelled (we know exactly what type each one is). The model learns the general *shapes* of each class — and then we apply it to real Hubble data.
-
-### 6.4 What Is CrossEntropyLoss?
-
-After the model makes a prediction, we need to measure how wrong it was. **Cross-Entropy Loss** is the standard "wrongness score" for classification problems.
-
-The model outputs a probability for each of the 5 classes (they must add up to 100%). If the correct answer is "Cepheid" and the model says 95% Cepheid, the loss is very low. If the model says 2% Cepheid, the loss is very high. The goal during training is to minimise this loss.
-
-### 6.5 What Is the Adam Optimiser?
-
-After computing the loss, we need to adjust the model's internal numbers (called **weights**) to make it less wrong next time. The **Adam optimiser** is the algorithm that does this adjustment. It calculates which direction to nudge each weight, and by how much (controlled by the **learning rate** of `0.001`). Adam is preferred over simpler optimisers because it adapts the step size individually for each weight — it learns how to learn.
-
-### 6.6 What Are Epochs?
-
-One **epoch** means the model has seen all 5,000 training examples exactly once. We train for **30 epochs** — so the model sees each example 30 times, getting progressively smarter each pass. After each epoch, we evaluate it on the 1,000 test examples it has never trained on (to make sure it is learning general patterns, not just memorising the training data).
-
-### 6.7 Best Model Checkpointing
-
-After each epoch, if the test loss is lower than any previous epoch, we save the model weights to `models/star_classifier.pth`. This means even if the model starts to slightly overfit in the final few epochs, we have preserved the best-ever version. This is the model we then use on real Hubble data.
+### 6.4 CrossEntropyLoss & Optimizers
+* **Cross-Entropy Loss**: Standard for multi-class classifiers. It measures how close the predicted probability distribution is to the target one-hot label.
+* **Adam Optimizer**: An adaptive gradient descent optimizer that adjusts individual parameter learning rates dynamically during training.
 
 ---
 
@@ -237,36 +225,14 @@ The file `data/hcv_spatial_catalog.csv` is the final result table. Here is what 
 | `absolute_mag` | Calculated intrinsic brightness (how bright it truly is) | `-0.359` |
 | `distance_ly` | Estimated distance from Earth in light-years | `1,016,027` |
 
-**Why are some `absolute_mag` and `distance_ly` values N/A?**
-
-Distance estimation only works for *standard candles* — stars whose intrinsic brightness we know from their period. We have reliable period-luminosity relations for:
-- **Cepheids** (period tells us intrinsic brightness)
-- **RR Lyrae** (fixed absolute magnitude ≈ +0.6)
-
-For **LPVs**, there is no simple standard-candle relation — their brightness depends on mass, age, and composition in complex ways. So those rows correctly show N/A.
-
-**Sanity check on the distances:** The Andromeda Galaxy is known to be approximately **2.5 million light-years** away. Our RR Lyrae stars come back with distances of ~685,000–1,066,000 ly and our Cepheids at ~844,000–1,755,000 ly. These are all within the right order of magnitude for stars in or near M31. The variation exists partly because the F814W filter is not perfectly calibrated for the standard V-band relations we used, introducing a systematic offset — but the fact that they are all clearly extragalactic (vs Milky Way scale of ~100,000 ly) confirms these are genuinely M31 stars.
-
 ---
 
 ## 8. Reading the Outputs: The Spatial Map Plot
 
 The file `hcv_stars_spatial_map.png` shows where all the classified variable stars sit in the sky relative to Andromeda's centre.
 
-**What the axes mean:**
-- **X-axis (Right Ascension):** Moving right = further east in the sky. Ranges from about 10.68° to 10.92°.
-- **Y-axis (Declination):** Moving up = further north in the sky. Ranges from about 41.17° to 41.37°.
-
-**What the markers mean:**
-- 🔴 Red circle = **Cepheid Variable**
-- 🟥 Pink square = **RR Lyrae**
-- 🟡 Gold diamond = **Long-Period Variable (LPV)**
-- ✚ Black cross = **M31 Galaxy Centre** (RA = 10.685°, Dec = 41.269°)
-
-**What to observe in the plot:**
-- The M31 centre cross is at the lower-left. All our detected stars are scattered within a 0.2° radius of that centre — they are genuinely *inside* Andromeda's footprint on the sky.
-- The stars cluster in two loose groups: one near RA ≈ 10.78° (upper-left cluster) and one near RA ≈ 10.91° (lower-right cluster). These correspond to specific Hubble observation fields (PHAT survey footprints) where dense multi-epoch data was collected.
-- There are no Eclipsing Binaries in this particular sample — that is expected since Hubble's sparse sampling (5–15 observations per star) makes it hard to catch the precise timing of eclipses, which are brief and infrequent.
+* **Axes**: X-axis is Right Ascension (RA), Y-axis is Declination (Dec).
+* **Markers**: Color-coded nodes (Red circle = Cepheid, Pink square = RR Lyrae, Gold diamond = LPV) with a black cross pointing to Andromeda's astronomical center (RA = 10.685°, Dec = 41.269°).
 
 ---
 
@@ -274,50 +240,21 @@ The file `hcv_stars_spatial_map.png` shows where all the classified variable sta
 
 When you run `predict.py` on any individual light curve, it generates a 3-panel figure called `lightcurve_diagnostic_plot.png`.
 
-**Panel 1 — Raw Light Curve:**
-Shows the raw brightness measurements as individual dots, plotted against time (MJD). This is the "messy" original data — what Hubble actually recorded. You will notice the dots do not fall on a smooth line. This is expected: real measurements always have noise (detector imperfections, atmospheric effects for ground telescopes, etc.).
-
-**Panel 2 — Lomb-Scargle Periodogram:**
-Shows the power (y-axis) at each tested frequency (x-axis, in cycles per day). The tallest spike tells us the star's pulsation frequency. The period is `1 / frequency_at_peak`. If you see a very clean, sharp spike, the star has a very regular period. If the spectrum is messy with several comparable peaks, the variability is less well-constrained (common for LPVs).
-
-**Panel 3 — Phase-Folded Light Curve:**
-Shows the same data after phase folding — all cycles collapsed onto 0.0 to 1.0. The raw phase-folded dots are plotted, and overlaid in a solid curve is the **100-point interpolated profile** that was actually fed into the neural network. This is the cleanest view of the star's characteristic shape. You should be able to see which type it is just by looking at the shape here.
+* **Panel 1 — Raw Light Curve**: Magnitude plotted against Modified Julian Date (MJD).
+* **Panel 2 — Lomb-Scargle Periodogram**: Scans frequencies to locate the tallest power peak representing the period.
+* **Panel 3 — Phase-Folded Light Curve**: The folded data points overlaid with the solid 100-point interpolated profile evaluated by the model.
 
 ---
 
 ## 10. Distance Estimation: How Far Away Are These Stars?
 
-### The Core Idea: Standard Candles
-
-If you know how bright a lightbulb *intrinsically* is (say, 100 watts), and you see how bright it *appears* from a distance, you can calculate the distance. The brighter it appears, the closer it is. This is the principle of **standard candles** in astronomy.
-
-### Step 1: Get the Intrinsic Brightness (Absolute Magnitude)
-
-For Cepheids, we use the **Period-Luminosity relation**:
-```
-Absolute Magnitude (M) = -2.43 × (log10(Period_in_days) - 1.0) - 4.05
-```
-A Cepheid with a period of 0.3 days gives: `M = -2.43 × (log10(0.3) - 1.0) - 4.05 = -2.43 × (-0.523 - 1.0) - 4.05 = -2.43 × (-1.523) - 4.05 = 3.70 - 4.05 = -0.35`
-
-For RR Lyrae, we simply use the fixed value `M = +0.6` (all RR Lyrae have approximately this brightness).
-
-### Step 2: Use the Distance Modulus Formula
-
-The **distance modulus** converts the difference between apparent brightness (what we see) and absolute brightness (what it actually is) into a distance:
-
+We use the **distance modulus formula**:
 ```
 distance (parsecs) = 10 ^ ((apparent_magnitude - absolute_magnitude + 5) / 5)
 distance (light-years) = distance_parsecs × 3.26
 ```
-
-**Worked example (star #62636726 from the catalog):**
-- Apparent magnitude: `22.108`
-- Absolute magnitude (from period 0.3028 days): `-0.359`
-- Distance modulus: `22.108 - (-0.359) + 5 = 27.467`
-- Distance: `10^(27.467 / 5) = 10^5.493 = 311,300 parsecs`
-- In light-years: `311,300 × 3.26 = 1,015,000 light-years`
-
-That is roughly **1 million light-years** — well within the Andromeda system.
+* **Cepheids**: Derived from the period-luminosity relation: `M = -2.43 * (log10(P) - 1.0) - 4.05`.
+* **RR Lyrae**: Assumed fixed absolute magnitude of `M ≈ +0.6`.
 
 ---
 
@@ -325,18 +262,10 @@ That is roughly **1 million light-years** — well within the Andromeda system.
 
 | Decision | What We Chose | Why |
 |---|---|---|
-| **Telescope source** | Hubble HCV via MAST API | Only Hubble resolves individual stars inside M31. TESS pixels are too large and only capture Milky Way foreground stars |
-| **Filter** | ACS_F814W (near-infrared) | Best data coverage for M31 in the HCV catalog; close to the I-band calibration used in standard PL relations |
-| **Minimum 5 observations** | 5 epochs required | The Lomb-Scargle algorithm needs at least a few points to find a real period. Fewer than 5 is pure noise |
-| **100-point sequence** | Fixed interpolation to 100 values | Balances shape resolution vs. over-interpolation from sparse 5–15-point Hubble data |
-| **1D CNN architecture** | Three conv layers (32→64→128 filters) | Efficient for 1D waveforms; increasing filter depth detects progressively complex shapes |
-| **Synthetic training data** | 5,000 synthetic + 1,000 test curves | Real M31 HCV data is too sparse to train on directly; synthetic data of the correct mathematical form generalises well |
-| **5 classes** | Cepheid, RR Lyrae, EB, LPV, Non-Variable | Covers all major variable types expected in Andromeda; Non-Variable class ensures the model can reject noise |
-| **CrossEntropyLoss** | Standard for multi-class classification | Penalises confident wrong answers more heavily than uncertain wrong answers — ideal for 5-class output |
-| **Adam optimiser, lr=0.001** | Adaptive moment estimation | Self-adjusting learning rate; faster convergence than plain SGD; widely trusted default for classification tasks |
-| **30 epochs** | Full training pass × 30 | Enough for the synthetic data to converge (accuracy hits 99%+ by epoch 15); not so many that overfitting occurs |
-| **Batch size 32** | 32 stars per gradient step | Standard batch size; fits comfortably in RAM on any modern laptop |
-| **Best-model checkpointing** | Save at lowest test loss | Prevents saving an overfit late-epoch model; always captures the generalising peak |
+| **Telescope source** | Hubble HCV via MAST API | TESS pixels are too large (21") and only capture foreground Milky Way stars |
+| **Filter** | ACS_F814W (near-infrared) | Best data coverage for M31; close to standard I-band used in PL relations |
+| **Real Training Data** | OGLE database | Synthetic curves lack real astronomical noise, aliases, and cycle variations |
+| **1D CNN architecture** | Three conv layers (32→64→128 filters) | Efficient feature extractor for 1D sequences and waveforms |
 
 ---
 
@@ -344,63 +273,35 @@ That is roughly **1 million light-years** — well within the Andromeda system.
 
 ```
 train.py
-│ Generates 5,000 synthetic light curves, trains the 1D CNN for 30 epochs,
-│ saves the best weights to models/star_classifier.pth.
-│ Run this FIRST before anything else.
+│ Trains the CNN model on synthetic light curves.
+
+train_on_ogle.py
+│ Trains the CNN on real processed OGLE light curves.
+
+download_ogle_training_data.py
+│ Downloads real labeled light curves from the OGLE database.
+
+validate_on_known_stars.py
+│ Downloads benchmark prototype stars from TESS to validate CNN generalization.
 
 download_andromeda_hcv.py
-│ Queries NASA's MAST API for Hubble-observed variable stars near M31's
-│ centre coordinates. Downloads their time-series brightness data and saves
-│ each star as a CSV file in data/andromeda_real_hcv/.
+│ Downloads actual M31 variable star light curves from Hubble.
 
 classify_hcv_variables.py
-│ Loads each CSV, runs Lomb-Scargle, phase-folds, interpolates to 100 points,
-│ and feeds it through the trained model. Estimates distances for standard
-│ candles and saves results to data/hcv_spatial_catalog.csv and
-│ hcv_stars_spatial_map.png.
+│ Classifies HCV stars, estimates distances, and maps Andromeda.
 
 predict.py
-│ Takes any single light-curve file (CSV or FITS) from the command line,
-│ runs the full pipeline on that one star, and saves a 3-panel diagnostic
-│ plot to lightcurve_diagnostic_plot.png.
+│ Runs inference on a single file and outputs a diagnostic plot.
 
 app.py
-│ Wraps predict.py inside a Gradio web interface. You upload a file in
-│ your browser and see the classification and diagnostic plot instantly.
+│ Interactive Gradio web interface.
 
 src/model.py
-│ Defines the LightCurveCNN neural network: 3 convolutional blocks
-│ (Conv1D + BatchNorm + ReLU + MaxPool + Dropout) followed by a
-│ fully-connected output layer producing 5 class probabilities.
+│ Defines the 1D CNN structure.
 
 src/data_setup.py
-│ Generates synthetic phase-folded light curves for each of the 5 star
-│ classes with mathematically correct wave shapes and added Gaussian noise.
-│ Also contains the PyTorch Dataset wrapper for use with DataLoader.
+│ Preprocesses and generates synthetic training data.
 
 src/engine.py
-│ train_epoch(): one full pass over training data — forward pass, loss
-│   computation, backward pass, weight update.
-│ test_epoch(): one full pass over test data — forward pass only, no
-│   weight updates. Optionally prints a classification report.
-
-models/star_classifier.pth
-│ The saved weights of the best-performing trained model. This is what the
-│ classifier scripts load to make predictions. Not committed to Git
-│ (you generate it by running train.py).
-
-data/andromeda_real_hcv/
-│ Raw CSV files downloaded from the Hubble Catalog of Variables.
-│ One file per star. Not committed to Git (downloaded locally by
-│ download_andromeda_hcv.py).
-
-data/hcv_spatial_catalog.csv
-│ Final output table: one row per classified star, with coordinates,
-│ star type, confidence, period, apparent magnitude, absolute magnitude,
-│ and estimated distance in light-years.
-
-hcv_stars_spatial_map.png
-│ Scatter plot of all classified stars plotted at their RA/Dec sky
-│ coordinates, colour-coded and shaped by star type, with Andromeda's
-│ centre marked by a black cross.
+│ Handles train/evaluation epoch loops.
 ```

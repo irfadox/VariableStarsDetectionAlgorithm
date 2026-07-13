@@ -5,4 +5,7 @@ mastDownload/
 lightcurve_diagnostic_plot.png
 hcv_stars_spatial_map.png
 data/andromeda_real_hcv/
+data/ogle_training/
+data/validation_plots/
+data/validation_results.csv
 *.pyc
