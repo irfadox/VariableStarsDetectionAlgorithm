@@ -1,6 +1,6 @@
 # Complete Beginner's Walkthrough: Variable Star Classification & Andromeda Mapping
 
-**Who this is for:** Anyone curious about this project with no prior background in astronomy or machine learning. No equations left unexplained. No design choices left unjustified. By the end, you should understand every file, every line of code, and exactly *why* each decision was made.
+**Who this is for:** Anyone curious about this project with little to no experience in astronomy or machine learning.
 
 ---
 
@@ -24,7 +24,7 @@
 
 ## 1. What Is This Project Doing?
 
-The Andromeda Galaxy (also called M31) is our closest galactic neighbour — a spiral galaxy about 2.5 million light-years away. Inside it are hundreds of billions of stars.
+The Andromeda Galaxy (M31) is our closest galactic neighbour - a spiral galaxy ~2.5 million light years away. Inside it are hundreds of billions of stars.
 
 This project answers the question: **can we automatically identify which types of variable stars exist inside Andromeda, and how far away they are — all from raw telescope data?**
 
@@ -32,7 +32,7 @@ To do that, we:
 1. Download real Hubble Space Telescope brightness measurements for individual stars inside Andromeda.
 2. Use a mathematical algorithm (Lomb-Scargle) to find how often each star pulses.
 3. Convert that pulsation into a clean shape (phase-folded light curve).
-4. Feed that shape to an AI (a 1D Convolutional Neural Network) trained on real expert-labeled data from the OGLE survey.
+4. Feed that shape to an AI (a 1D Convolutional Neural Network) trained on real data from the OGLE survey.
 5. Use the classification to estimate distance using physics equations called **standard candles**.
 6. Plot all classified stars on a sky map showing where they sit inside Andromeda.
 
@@ -97,7 +97,7 @@ OGLE is ideal because:
 - Data is freely accessible via direct HTTP at `https://www.astrouw.edu.pl/ogle/`.
 - The photometry spans 5–15 years, making period detection reliable.
 
-### What the Code Does, Line by Line
+### What the Code does
 
 ```python
 BASE_URL = "https://www.astrouw.edu.pl/ogle/ogle4/OCVS"
@@ -137,7 +137,7 @@ if os.path.exists(out_path):
 ```
 **Resume capability.** If a file already exists on disk (from a previous run), we count it and skip re-downloading. This means you can safely interrupt and resume the downloader without losing progress.
 
-### What Each Downloaded File Looks Like
+### What Downloaded Files look like
 
 Each `.dat` file is a plain text table with 3 columns: `HJD_time  magnitude  magnitude_error`. Example:
 ```
@@ -272,7 +272,7 @@ A regular neural network (called a "dense" or "fully connected" network) would l
 
 A 1D convolutional filter is a small window (say, 5 positions wide) that slides across the entire sequence and detects a local feature at every position. This is **translation invariant** — it doesn't matter where in the phase the sharp rise occurs, the filter will detect it.
 
-### The Architecture, Line by Line
+### The Architecture
 
 ```python
 self.conv1 = nn.Conv1d(in_channels=1, out_channels=32, kernel_size=5, padding=2)
@@ -667,3 +667,97 @@ The Cepheid PL relation coefficients (−2.43 and −4.05) were calibrated in th
 
 ### Model Not Retrained on Hubble Data
 The CNN was trained on OGLE photometry (ground-based, southern-hemisphere, multi-year baseline). Hubble photometry has different noise characteristics, a different time sampling pattern, and different filter profiles. Cross-survey generalisation introduces uncertainty we cannot fully quantify without a labeled Hubble test set.
+
+## 15. Troubleshooting & Convergence Analysis
+
+When looking at the output training logs from `train_on_ogle.py`, an important machine learning phenomenon occurs around **Epoch 15**:
+
+* **Training Loss** steadily drops from `0.6562` (Epoch 1) down to `0.0479` (Epoch 50), with training accuracy climbing to **98.9%**.
+* **Validation Loss** hits its absolute lowest point (`0.3806`) at **Epoch 15**, where the training script outputs `✓ saved`. 
+* After Epoch 15, the Validation Loss begins to climb back up to `0.4620`, while the validation accuracy plateaus near **87.2%**.
+
+
+
+### Why does this happen? (Overfitting)
+This divergence is a textbook example of **overfitting**. After Epoch 15, the 1D CNN stops learning general geometric principles of light curves and begins to memorize the individual noise patterns and point-to-point scatter unique to the OGLE dataset. While the model becomes highly confident in its predictions (driving training loss down), its overconfidence on incorrect validation samples causes the validation loss to spike.
+
+### How this pipeline handles it
+Because the code tracks `best_val_loss` and only executes `torch.save()` when validation loss reaches a new minimum, **the overfit weights from Epoch 50 are ignored.** The system automatically preserves the model weights from **Epoch 15**, ensuring the final engine deployed on Andromeda data retains maximum generalization capability.
+
+---
+
+## 16. Known Limitations and Future Work
+
+For an advanced research presentation, acknowledging where an algorithm can improve is highly valued. The following items represent structural limitations of this version and paths for future exploration:
+
+1. **Interpolation Artifacts on Sparse Data:** Hubble HCV data can be extremely sparse (sometimes only 10–20 observations per star). Linearly interpolating a 100-point fixed grid over highly sparse phase folds creates artificial flat slopes, which can confuse the CNN's feature maps.
+2. **Implementing Explicit Early Stopping:** Currently, the model runs for the full 50 epochs regardless of performance. A valuable framework addition would be an early-stopping monitor with a patience parameter of 7 epochs, automatically terminating training when validation loss stops improving.
+3. **Period-Aliasing Vulnerability:** If the Lomb-Scargle period finder identifies a harmonic or 1-day alias due to windowing functions rather than the true period, the resulting phase fold will be completely scrambled. A multi-input architecture that accepts both the 100-point folded array *and* raw period metadata into the dense layers would alleviate this bottleneck.
+
+---
+
+## 17. Research Paper Roadmap: From Code Base to Novel Contribution
+
+While this pipeline is a solid, functional deep learning application for astronomy, **as currently implemented, it is an engineering project rather than a novel research paper.** To publish this work in a peer-reviewed journal or present it at a research conference, we need to bridge specific scientific gaps.
+
+This section outlines the exact **4-Step Roadmap** to convert this codebase into a original scientific contribution.
+
+---
+
+### Step 1: Establish a Ground-Truth Test Set for Andromeda (M31)
+
+**The Problem:** Currently, the model is trained on ground-based OGLE data and applied to space-based Hubble data. We do not actually *know* the true accuracy on Andromeda stars because our HCV download lacks verified expert labels.
+
+**The Solution:**
+1. Cross-match our HCV candidate coordinates against verified astronomical databases (**SIMBAD** or **AAVSO VSX**).
+2. Construct a human-verified "Gold Standard" test set of ~40–50 Andromeda stars (10 confirmed Cepheids, 10 RR Lyrae, 10 Eclipsing Binaries, 10 LPVs).
+3. Evaluate the OGLE-trained CNN directly on this test set to quantify the **Domain Shift Penalty** (e.g., measuring how much accuracy drops when moving from ground-based OGLE to space-based Hubble data).
+
+---
+
+### Step 2: Implement a Multi-Input (Hybrid) Neural Network Architecture
+
+**The Problem:** The current 1D CNN only sees the 100-point normalized phase fold. It is blind to the star's actual **pulsation period**, **amplitude**, and **mean magnitude**. When Lomb-Scargle finds an 18-day alias for a 460-day LPV, the phase-folded shape looks like an Eclipsing Binary, tricking the CNN.
+
+**The Solution:**
+Upgrade `src/model.py` to a **Dual-Branch Hybrid Architecture**:
+
+```
+Branch 1: Phase Fold (100 pts) ────> 1D Conv Blocks (32→64→128) ────\
+                                                                     ├──> Concat (1028) ──> Dense Layer ──> Class
+Branch 2: Metadata [P, Amp, Pow] ──> Dense Layer (16 nodes) ─────────/
+```
+
+* **Why this is novel:** It combines geometric shape features (CNN) with physical stellar attributes (dense layer), preventing period-aliasing misclassifications.
+
+---
+
+### Step 3: Domain Adaptation & Fine-Tuning
+
+**The Problem:** Hubble photometry has a much sparser sampling cadence (10–20 points over years) compared to OGLE (hundreds of points over years).
+
+**The Solution:**
+1. Freeze the lower convolutional feature-extraction layers of `LightCurveCNN` (which detect basic shape primitives).
+2. Fine-tune the upper classification layers using a small set of real or artificially degraded M31 light curves that mimic Hubble's exact sampling cadence.
+3. Quantify the accuracy gain from domain adaptation versus naive zero-shot classification.
+
+---
+
+### Step 4: Uncertainty Quantification via Monte Carlo Dropout
+
+**The Problem:** The distance modulus formula currently outputs a single distance estimate (e.g., 2.51 million light-years), ignoring prediction uncertainty and observational noise.
+
+**The Solution:**
+1. Keep `Dropout(p=0.3)` active during inference and pass each star through the network **100 times** (Monte Carlo Dropout).
+2. Calculate the variance across the 100 predictions to measure model confidence.
+3. Propagate Lomb-Scargle period uncertainty ($\sigma_P$) through the Leavitt Law to report distances with rigorous 95% confidence intervals (e.g., $2.51 \pm 0.14\text{ Mpc}$).
+
+---
+
+### Summary of Targeted Research Paper Contributions
+
+If these four steps are executed, the project yields three concrete scientific contributions:
+
+1. **Quantification of Cross-Survey Domain Shift**: First systematic benchmark measuring how ground-trained light-curve classifiers generalize to HST-HCV photometry in M31.
+2. **Hybrid Physics-Aware CNN Architecture**: A novel neural network design that integrates Lomb-Scargle period metadata directly with 1D phase-fold feature maps to resist aliasing.
+3. **Distance Catalog with Bayesian Error Bars**: An open catalog of classified M31 variable stars with probabilistic distance estimations.
