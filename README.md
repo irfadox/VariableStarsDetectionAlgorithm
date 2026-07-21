@@ -40,12 +40,12 @@ Trained on 1,000 real OGLE light curves per class (4,000 total) + 500 synthetic 
 
 | Class | Precision | Recall | F1 |
 |---|---|---|---|
-| Cepheid | 82% | 82% | 82% |
-| RR Lyrae | 79% | 73% | 76% |
-| Eclipsing Binary | 90% | 92% | 91% |
-| LPV | 84% | 88% | 86% |
+| Cepheid | 85% | 85% | 85% |
+| RR Lyrae | 84% | 79% | 81% |
+| Eclipsing Binary | 86% | 90% | 88% |
+| LPV | 83% | 85% | 84% |
 | Non-Variable / Noise | 100% | 100% | 100% |
-| **Overall** | — | — | **89%** |
+| **Overall Macro Avg** | **88%** | **88%** | **88%** |
 
 **TESS prototype validation** (3/4 known stars correctly classified at >84% confidence):
 - ✅ Zeta Geminorum → Cepheid (97.5%)
